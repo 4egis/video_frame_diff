@@ -1,0 +1,12 @@
+#videoContainer {
+    position: relative;
+    display: inline-block;
+  }
+  #splitLineVisual {
+    position: absolute;
+    height: 100%;
+    width: 2px;
+    background: red;
+    top: 0;
+  }
+  
