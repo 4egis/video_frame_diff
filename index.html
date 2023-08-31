@@ -8,7 +8,6 @@
   <h1>Motion Measurement from Video</h1>
 
   <input type="file" id="videoInput" accept="video/mp4" />
-  <button onclick="playVideo()">Play Video</button>
 
   <label for="splitLine">Split Line Position (0-100%): </label>
   <input type="number" id="splitLine" min="0" max="100" value="50" onchange="updateLinePosition()">
@@ -18,8 +17,7 @@
     <div id="splitLineVisual"></div>
   </div>
 
-  <button onclick="analyzeFrames()">Analyze Frames</button>
-  <button onclick="exportCSV()">Export CSV</button>
+  <button onclick="analyzeFrames()">Analyze & Export Results</button>
 
   <script src="script.js"></script>
 </body>
