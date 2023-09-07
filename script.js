@@ -51,22 +51,32 @@ function updateLinePosition() {
   splitLineVisual.style.left = `${linePosition}px`;
 }
 
+
 /**
  * Analyzes frames from the video.
  */
+let analysisInProgress = false;
 function analyzeFrames() {
+
+  if (analysisInProgress) return;
+
+  analysisInProgress = true;
+
   console.time('Execution Time');
-  const fps = 5;
+  const fps = 25;
   csvData = [
-    ['Frame number', 'Left Average Pixel Intensity Difference', 'Right Average Pixel Intensity Difference']
+    ['Time', 'Left Average Pixel Intensity Difference', 'Right Average Pixel Intensity Difference']
   ];
   const splitLinePos = splitLine.value / 100;
   const splitLinePixelPos = Math.floor(canvas.width * splitLinePos);
 
+  var timeout = null;
+
   /**
-   * On video seeked, updates the frame and does the analysis.
+   * Processes frames as the video is playing.
    */
-  function onSeeked() {
+  function processFrame() {
+    let begin = Date.now();
     updateFrame(canvas, ctx, videoPlayer);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     if (lastImageData) {
@@ -76,18 +86,21 @@ function analyzeFrames() {
     }
     lastImageData = new Uint8Array(imageData);
 
+    let delay = 1000 / fps - (Date.now() - begin);
+
     if (videoPlayer.currentTime < videoPlayer.duration) {
-      videoPlayer.currentTime += 1.0 / fps;
+      setTimeout(processFrame, delay);
     } else {
-      videoPlayer.removeEventListener('seeked', onSeeked);
       console.log('Analysis execution time');
       console.timeEnd('Execution Time');
       exportCsv();
+      analysisInProgress = false;
     }
   }
 
-  videoPlayer.addEventListener('seeked', onSeeked);
   videoPlayer.currentTime = 0;
+  videoPlayer.play();
+  setTimeout(processFrame, 0);
 }
 
 /**
