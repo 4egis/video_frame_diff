@@ -9,6 +9,10 @@ let csvData = [];
 let canvas = createCanvas();
 let ctx = canvas.getContext('2d');
 let lastImageData = null;
+let diffCanvas = createCanvas();
+let diffCtx = diffCanvas.getContext('2d');
+document.body.appendChild(diffCanvas);
+let uploadedFileName;
 
 // Event listeners.
 videoInput.addEventListener('change', handleVideoInput);
@@ -20,6 +24,7 @@ window.addEventListener('resize', updateLinePosition);
  */
 function handleVideoInput() {
   const file = this.files[0];
+  uploadedFileName = file.name.split('.')[0];
   const url = URL.createObjectURL(file);
   videoPlayer.src = url;
 }
@@ -31,6 +36,8 @@ function handleVideoMetadata() {
   updateLinePosition();
   canvas.width = videoPlayer.videoWidth;
   canvas.height = videoPlayer.videoHeight;
+  diffCanvas.width = videoPlayer.videoWidth;
+  diffCanvas.height = videoPlayer.videoHeight;
 }
 
 /**
@@ -114,7 +121,7 @@ function updateFrame(canvas, ctx, video) {
 }
 
 /**
- * Calculates the pixel intensity differences.
+ * Computes the pixel intensity differences between two frames and updates the diffCanvas with a visualization.
  * @param {Uint8Array} imageData - The image data.
  * @param {Uint8Array} lastImageData - The last image data.
  * @param {number} splitLinePixelPos - The split line position in pixels.
@@ -126,10 +133,20 @@ function calculatePixelIntensityDiff(imageData, lastImageData, splitLinePixelPos
   let leftDiff = 0;
   let rightDiff = 0;
   const splitLinePos = splitLinePixelPos / width;
+  let diffImageData = new ImageData(diffCanvas.width, diffCanvas.height);
 
   for (let i = 0; i < imageData.length; i += 4) {
     const x = (i / 4) % width;
-    const diff = Math.abs(imageData[i] - lastImageData[i]);
+    const Rdiff = Math.abs(imageData[i] - lastImageData[i]);
+    const Gdiff = Math.abs(imageData[i + 1] - lastImageData[i + 1]);
+    const Bdiff = Math.abs(imageData[i + 1] - lastImageData[i + 1]);
+
+    const diff = (Rdiff + Gdiff + Bdiff) / 3;
+
+    diffImageData.data[i] = diff;
+    diffImageData.data[i+1] = diff;
+    diffImageData.data[i+2] = diff;
+    diffImageData.data[i+3] = 255;
 
     if (x < splitLinePixelPos) {
       leftDiff += diff;
@@ -137,6 +154,8 @@ function calculatePixelIntensityDiff(imageData, lastImageData, splitLinePixelPos
       rightDiff += diff;
     }
   }
+
+  diffCtx.putImageData(diffImageData, 0, 0);
 
   const leftAvgDiff = leftDiff / (width * height * splitLinePos);
   const rightAvgDiff = rightDiff / (width * height * (1 - splitLinePos));
@@ -150,7 +169,7 @@ function calculatePixelIntensityDiff(imageData, lastImageData, splitLinePixelPos
 function exportCsv() {
   const csvContent = csvData.map(e => e.join(',')).join('\n');
   const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
-  const link = createDownloadLink(blob, 'motion_analysis.csv');
+  const link = createDownloadLink(blob, `${uploadedFileName}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
