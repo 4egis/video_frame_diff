@@ -3,6 +3,9 @@ const videoPlayer = document.getElementById('videoPlayer');
 const videoInput = document.getElementById('videoInput');
 const splitLine = document.getElementById('splitLine');
 const splitLineVisual = document.getElementById('splitLineVisual');
+const startAnalysisButton = document.getElementById('startAnalysis');
+const stopAnalysisButton = document.getElementById('stopAnalysis');
+const statusElement = document.getElementById('status');
 
 // Global variables.
 let csvData = [];
@@ -18,6 +21,8 @@ let uploadedFileName;
 videoInput.addEventListener('change', handleVideoInput);
 videoPlayer.addEventListener('loadedmetadata', handleVideoMetadata);
 window.addEventListener('resize', updateLinePosition);
+startAnalysisButton.addEventListener('click', startAnalysis);
+stopAnalysisButton.addEventListener('click', stopAnalysis);
 
 /**
  * Handles changes to the video input.
@@ -58,18 +63,17 @@ function updateLinePosition() {
   splitLineVisual.style.left = `${linePosition}px`;
 }
 
-
 /**
- * Analyzes frames from the video.
+ * Starts analyzing frames from the video.
  */
 let analysisInProgress = false;
-function analyzeFrames() {
 
+function startAnalysis() {
   if (analysisInProgress) return;
 
   analysisInProgress = true;
+  updateStatus();
 
-  console.time('Execution Time');
   const fps = 25;
   csvData = [
     ['Time', 'Left Average Pixel Intensity Difference', 'Right Average Pixel Intensity Difference']
@@ -77,37 +81,37 @@ function analyzeFrames() {
   const splitLinePos = splitLine.value / 100;
   const splitLinePixelPos = Math.floor(canvas.width * splitLinePos);
 
-  var timeout = null;
-
-  /**
-   * Processes frames as the video is playing.
-   */
   function processFrame() {
     let begin = Date.now();
     updateFrame(canvas, ctx, videoPlayer);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     if (lastImageData) {
       const diffs = calculatePixelIntensityDiff(
-          imageData, lastImageData, splitLinePixelPos, canvas.width, canvas.height);
+        imageData, lastImageData, splitLinePixelPos, canvas.width, canvas.height);
       csvData.push([videoPlayer.currentTime, diffs.leftAvgDiff, diffs.rightAvgDiff]);
     }
     lastImageData = new Uint8Array(imageData);
 
     let delay = 1000 / fps - (Date.now() - begin);
 
-    if (videoPlayer.currentTime < videoPlayer.duration) {
+    if (videoPlayer.currentTime < videoPlayer.duration && analysisInProgress) {
       setTimeout(processFrame, delay);
-    } else {
-      console.log('Analysis execution time');
-      console.timeEnd('Execution Time');
+    } else if (videoPlayer.currentTime >= videoPlayer.duration && analysisInProgress) {
       exportCsv();
       analysisInProgress = false;
+      updateStatus();
     }
   }
 
-  videoPlayer.currentTime = 0;
   videoPlayer.play();
   setTimeout(processFrame, 0);
+}
+
+function stopAnalysis() {
+  videoPlayer.pause();
+  analysisInProgress = false;
+  exportCsv();
+  updateStatus();
 }
 
 /**
@@ -144,9 +148,9 @@ function calculatePixelIntensityDiff(imageData, lastImageData, splitLinePixelPos
     const diff = (Rdiff + Gdiff + Bdiff) / 3;
 
     diffImageData.data[i] = diff;
-    diffImageData.data[i+1] = diff;
-    diffImageData.data[i+2] = diff;
-    diffImageData.data[i+3] = 255;
+    diffImageData.data[i + 1] = diff;
+    diffImageData.data[i + 2] = diff;
+    diffImageData.data[i + 3] = 255;
 
     if (x < splitLinePixelPos) {
       leftDiff += diff;
@@ -168,11 +172,14 @@ function calculatePixelIntensityDiff(imageData, lastImageData, splitLinePixelPos
  */
 function exportCsv() {
   const csvContent = csvData.map(e => e.join(',')).join('\n');
-  const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+  const blob = new Blob([csvContent], {
+    type: 'text/csv;charset=utf-8;'
+  });
   const link = createDownloadLink(blob, `${uploadedFileName}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  videoPlayer.pause();
 }
 
 /**
@@ -188,4 +195,15 @@ function createDownloadLink(blob, fileName) {
   link.setAttribute('download', fileName);
   link.style.visibility = 'hidden';
   return link;
+}
+
+/**
+ * Updates status display.
+ */
+function updateStatus() {
+  if (analysisInProgress) {
+    statusElement.textContent = "Analysis in progress";
+  } else {
+    statusElement.textContent = "";
+  }
 }
